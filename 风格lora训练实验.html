@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔搭 AIGC · 图片编辑模型 LoRA 训练教程</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --ink:#1f2430; --sub:#5b6472; --line:#e6e9f0;
+    --brand:#5b57e8; --brand2:#7c4dff; --brand-soft:#eef0ff;
+    --ok:#e8f7ef; --ok-ink:#1a7f4b; --warn:#fff6e6; --warn-ink:#a86400;
+    --info:#eaf3ff; --info-ink:#1c5fb3; --danger:#fdecec; --danger-ink:#c0392b;
+    --mono:"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.75;font-size:15px}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+
+  .hero{background:linear-gradient(135deg,#5b57e8 0%,#7c4dff 55%,#9b51e0 100%);
+    color:#fff;padding:54px 22px 46px;position:relative;overflow:hidden}
+  .hero:after{content:"";position:absolute;right:-80px;top:-80px;width:320px;height:320px;
+    border-radius:50%;background:rgba(255,255,255,.08)}
+  .hero:before{content:"";position:absolute;right:60px;bottom:-120px;width:240px;height:240px;
+    border-radius:50%;background:rgba(255,255,255,.06)}
+  .hero .inner{max-width:1000px;margin:0 auto;position:relative;z-index:1}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);
+    padding:4px 13px;border-radius:100px;font-size:12.5px;letter-spacing:.3px;margin-bottom:18px}
+  .hero h1{margin:0 0 12px;font-size:32px;line-height:1.35;font-weight:800}
+  .hero p{margin:0;max-width:760px;color:rgba(255,255,255,.9);font-size:15.5px}
+  .hero .meta{margin-top:22px;display:flex;flex-wrap:wrap;gap:10px}
+  .hero .meta span{background:rgba(255,255,255,.16);padding:5px 12px;border-radius:8px;font-size:12.5px}
+
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 26px;margin:28px 0 34px;
+    box-shadow:0 6px 24px rgba(30,36,48,.04)}
+  .toc h3{margin:0 0 14px;font-size:15px;color:var(--sub);font-weight:700;letter-spacing:.5px}
+  .toc ol{margin:0;padding-left:20px;columns:2;column-gap:40px}
+  .toc li{margin:5px 0;break-inside:avoid}
+  .toc a{color:var(--ink)}
+  .toc a:hover{color:var(--brand)}
+
+  section{margin:0 0 46px;scroll-margin-top:20px}
+  .sec-head{display:flex;align-items:center;gap:13px;margin:0 0 18px}
+  .num{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand);
+    font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center}
+  .sec-head h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.3px}
+  h3.sub{font-size:16.5px;margin:26px 0 10px;font-weight:750}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:14px 0;
+    box-shadow:0 4px 16px rgba(30,36,48,.035)}
+  .card p{margin:8px 0}
+
+  .note{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid;font-size:14.3px}
+  .note b{display:block;margin-bottom:3px}
+  .note.info{background:var(--info);border-color:#3b82f6;color:var(--info-ink)}
+  .note.warn{background:var(--warn);border-color:#f5a623;color:var(--warn-ink)}
+  .note.ok{background:var(--ok);border-color:#28a745;color:var(--ok-ink)}
+  .note.danger{background:var(--danger);border-color:#e74c3c;color:var(--danger-ink)}
+
+  pre{background:#1e2230;color:#e8ebf5;border-radius:12px;padding:16px 18px;overflow:auto;font-size:13px;
+    line-height:1.65;margin:12px 0;font-family:var(--mono)}
+  pre .c{color:#8b95b0}
+  pre .g{color:#7ee0a8}
+  pre .y{color:#ffd479}
+  code{font-family:var(--mono);background:#eef0f6;color:#b0257a;padding:2px 6px;border-radius:5px;font-size:12.8px}
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+
+  .step{display:flex;gap:16px;margin:0 0 6px;padding:18px 0;border-bottom:1px dashed var(--line)}
+  .step:last-child{border-bottom:none}
+  .step .dot{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;
+    font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .step .body{flex:1}
+  .step .body h4{margin:0 0 5px;font-size:15.5px}
+  .step .body p{margin:4px 0}
+
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.6px;background:var(--card);
+    border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  th,td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f0f2f9;font-weight:700;color:#394154}
+  tr:last-child td{border-bottom:none}
+  td code{font-size:12px}
+
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:16px 0}
+  .flow .node{flex:1 1 150px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;
+    text-align:center;min-width:140px}
+  .flow .node .t{font-weight:750;font-size:14px;margin-bottom:4px}
+  .flow .node .d{font-size:12.3px;color:var(--sub)}
+  .flow .arrow{align-self:center;color:var(--brand);font-size:22px;font-weight:bold}
+
+  .pill{display:inline-block;background:var(--brand-soft);color:var(--brand);border-radius:6px;
+    padding:2px 9px;font-size:12.5px;font-weight:650}
+  .tag{display:inline-block;border-radius:5px;padding:1px 8px;font-size:11.5px;font-weight:650;margin-left:5px;vertical-align:middle}
+  .tag.rec{background:#e4f6ec;color:#16794a}
+  .tag.new{background:#fff0e4;color:#c96a00}
+  .tag.nc{background:#f4eafc;color:#7d3fb0}
+
+  .model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:12px;margin:14px 0}
+  .model{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 16px;
+    box-shadow:0 3px 12px rgba(30,36,48,.03)}
+  .model .n{font-weight:800;font-size:14.5px;margin-bottom:2px}
+  .model .e{font-size:11.5px;color:#9aa1b0;margin-bottom:8px}
+  .model .d{font-size:12.8px;color:var(--sub);line-height:1.6}
+  .model .s{margin-top:9px;font-size:12px;color:var(--brand);font-weight:650}
+  .taskband{display:flex;align-items:center;gap:10px;margin:22px 0 4px}
+  .taskband .chip{background:var(--brand);color:#fff;border-radius:8px;padding:5px 13px;font-weight:750;font-size:14px}
+  .taskband .desc{font-size:13px;color:var(--sub)}
+
+  .kbd{font-family:var(--mono);background:#f0f2f9;border:1px solid #d8dce8;border-bottom-width:2px;
+    border-radius:5px;padding:1px 7px;font-size:12.5px;color:#394154}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}.toc ol{columns:1}.hero h1{font-size:25px}}
+
+  .foot{text-align:center;color:#9aa1b0;font-size:12.5px;margin-top:50px;border-top:1px solid var(--line);padding-top:22px}
+  .src-list{font-size:12.8px;color:var(--sub)}
+  .src-list li{margin:4px 0}
+  .chk{list-style:none;padding-left:0}
+  .chk li{padding-left:26px;position:relative;margin:7px 0}
+  .chk li:before{content:"✓";position:absolute;left:0;top:0;color:var(--ok-ink);font-weight:800}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="inner">
+    <span class="badge">ModelScope AIGC · LoRA 微调实战</span>
+    <h1>图片编辑模型 LoRA 训练教程</h1>
+    <p>从零把「原图 → 风格化图」的图片组，训练成魔搭平台上可调用的图片编辑 LoRA。
+       结合你已整理好的 <b>clay / VanGogh / illustration</b> 三个风格数据集，并系统梳理平台上<b>各任务的可选模型</b>与<b>专业参数配置</b>。</p>
+    <div class="meta">
+      <span>⏱ 全程约 20–40 分钟（含云端训练）</span>
+      <span>🧩 4 类任务 · 14+ 可选底模</span>
+      <span>📦 数据：17 组 / 风格</span>
+      <span>🎛 专业参数逐项解读</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="toc">
+    <h3>目录</h3>
+    <ol>
+      <li><a href="#s0">四类训练任务与模型总览</a></li>
+      <li><a href="#s1">各任务可选模型全景</a></li>
+      <li><a href="#s2">数据格式总览（start / end / txt）</a></li>
+      <li><a href="#s3">关键一步：标注改成"编辑指令"</a></li>
+      <li><a href="#s4">打包成平台可上传的 ZIP</a></li>
+      <li><a href="#s5">上传数据集到魔搭 AIGC 专区</a></li>
+      <li><a href="#s6">发起训练：选模型 + 基础参数</a></li>
+      <li><a href="#s7">专业参数深度解读（优化器 / 学习率 / rank）</a></li>
+      <li><a href="#s8">查看进度与下载 LoRA</a></li>
+      <li><a href="#s9">用训练好的 LoRA 做编辑</a></li>
+      <li><a href="#s10">常见问题与踩坑清单</a></li>
+    </ol>
+  </div>
+
+  <!-- S0 -->
+  <section id="s0">
+    <div class="sec-head"><div class="num">0</div><h2>四类训练任务与模型总览</h2></div>
+    <div class="card">
+      <p>魔搭 AIGC 专区「模型训练」页顶部有四个任务标签：<span class="pill">图像模型</span> <span class="pill">图像编辑模型</span> <span class="pill">视频模型</span> <span class="pill">音乐模型</span>。
+         先选对任务类型，再选底模——这一步决定后面整套数据组织和参数逻辑。</p>
+      <table>
+        <tr><th>任务类型</th><th>训练数据形态</th><th>典型用途</th><th>你的场景</th></tr>
+        <tr><td><b>图像模型</b></td><td>单张图片 + 描述 txt（也可选图片组）</td><td>人物、画风、产品、IP 等"文生图"概念</td><td>—</td></tr>
+        <tr><td><b>图像编辑模型</b> ✅</td><td>图片<b>组</b>：start + end + 指令 txt</td><td>"把这张图变成某风格 / 换发型 / 换背景"等图生图编辑</td><td><b>就是这类</b></td></tr>
+        <tr><td>视频模型</td><td>5–10 秒短视频片段（可选首尾帧）</td><td>特定运动、转场、视频风格</td><td>—</td></tr>
+        <tr><td>音乐模型</td><td>音频素材</td><td>音色、曲风</td><td>—</td></tr>
+      </table>
+      <div class="note info"><b>为什么你的场景必须选「图像编辑模型」？</b>
+        你有 17 组「原始照片 → 风格化结果」的配对，目标是让模型学会"把输入图编辑成某种风格"。
+        这类<b>成对编辑映射</b>只有图片编辑模型（如 Qwen-Image-Edit）支持；
+        选成图像模型的话，平台会把 start/end 当成独立图片，学不到"编辑前后"的对应关系。</div>
+    </div>
+  </section>
+
+  <!-- S1 -->
+  <section id="s1">
+    <div class="sec-head"><div class="num">1</div><h2>各任务可选模型全景</h2></div>
+    <div class="card">
+      <p>下面按平台界面实际展示的顺序列出可选底模，并给出各自的定位与选择建议。
+         <b>模型会持续更新，具体以你打开平台时看到的为准</b>；带 <span class="tag rec">推荐</span> 的是针对你当前任务的建议。</p>
+
+      <div class="taskband"><span class="chip">图像模型</span><span class="desc">文生图概念训练 · 单图或图片组</span></div>
+      <div class="model-grid">
+        <div class="model"><div class="n">Qwen-Image-2.1 <span class="tag rec">综合强</span></div><div class="e">Qwen Image 2512</div>
+          <div class="d">文生图与编辑一体的旗舰，综合能力强，文字渲染突出，适合带字海报、国风、IP 一致性。</div><div class="s">拿不准时的万金油</div></div>
+        <div class="model"><div class="n">Krea-2</div><div class="e">Krea 2</div>
+          <div class="d">写实人物与电影感表现突出，光影、背景虚化自然，偏写实审美。</div><div class="s">真人 / 写实摄影风</div></div>
+        <div class="model"><div class="n">MOSS-Img SFT</div><div class="e">MOSS-Image SFT</div>
+          <div class="d">文字排版与布局控制见长，可按 JSON 布局精确放置文字和元素。</div><div class="s">海报 / 信息图 / 包装</div></div>
+        <div class="model"><div class="n">Z-Image</div><div class="e">Z-Image</div>
+          <div class="d">生成速度快，消费级显卡友好，对亚洲面孔较友好，生态成熟。</div><div class="s">快速迭代 / 二次元</div></div>
+        <div class="model"><div class="n">Fibo-2.0-dev <span class="tag nc">商用受限</span></div><div class="e">Fibo 2.0 dev</div>
+          <div class="d">结构化提示词、4 步 Turbo 编辑，编辑质量高；许可证通常限制商用。</div><div class="s">尝鲜 / 研究用途</div></div>
+        <div class="model"><div class="n">更多模型</div><div class="e">持续上新</div>
+          <div class="d">平台会陆续接入更多图像底模，可点"更多模型"查看最新列表。</div></div>
+      </div>
+
+      <div class="taskband"><span class="chip">图像编辑模型</span><span class="desc">start→end 成对编辑 · 你的目标类型</span></div>
+      <div class="model-grid">
+        <div class="model"><div class="n">Qwen-Image-2.1 <span class="tag rec">旗舰</span></div><div class="e">Qwen Image 2512</div>
+          <div class="d">编辑侧同样强，支持多参考图与区域化编辑，综合质量与一致性兼顾。</div><div class="s">追求最高质量</div></div>
+        <div class="model"><div class="n">Qwen Image Edit 2511 <span class="tag rec">推荐</span></div><div class="e">Qwen-Image-Edit-2511</div>
+          <div class="d">专精编辑：人物/身份一致性好、支持多图与多人编辑、几何推理强，社区 LoRA 生态丰富。风格迁移实测自然。</div><div class="s">你这套数据的首选</div></div>
+        <div class="model"><div class="n">Klein Base 9B</div><div class="e">FLUX.2 [klein] Base 9B</div>
+          <div class="d">未蒸馏的完整基础模型，生成/编辑统一架构，速度极快，多参考图编辑，专为 LoRA 微调友好。</div><div class="s">快速出图 / 通用编辑</div></div>
+        <div class="model"><div class="n">HiDream-O1</div><div class="e">HiDream-O1-Image</div>
+          <div class="d">8B 规模，原生高分辨率输出，指令编辑与布局控制兼备，许可相对宽松。</div><div class="s">高分辨率 / 商用友好</div></div>
+        <div class="model"><div class="n">Fibo-2.0-dev <span class="tag nc">商用受限</span></div><div class="e">Fibo 2.0 dev</div>
+          <div class="d">4 步 Turbo 编辑、结构化提示词，编辑质量高；注意许可证限制。</div><div class="s">研究 / 尝鲜</div></div>
+        <div class="model"><div class="n">更多模型</div><div class="e">敬请期待</div>
+          <div class="d">编辑模型持续扩充中，留意平台"更多模型"入口。</div></div>
+      </div>
+
+      <div class="taskband"><span class="chip">视频模型</span><span class="desc">片段训练 · 建议 5–10 秒</span></div>
+      <div class="model-grid">
+        <div class="model"><div class="n">MiniMax-H3</div><div class="e">MiniMax / MiniMax-H3</div>
+          <div class="d">画质、提示词遵循与长片段身份一致性突出，原生立体声音频。平台当前对部分训练模式支持有限，以界面按钮可用状态为准。</div><div class="s">高画质 / 叙事镜头</div></div>
+        <div class="model"><div class="n">LTX-2.3</div><div class="e">Lightricks LTX-2.3</div>
+          <div class="d">速度快、迭代友好，支持风格/角色 LoRA 定制，支持首尾帧过渡、图生视频，最高 4K，许可宽松。</div><div class="s">LoRA 定制 / 快速迭代</div></div>
+        <div class="model"><div class="n">更多模型</div><div class="e">敬请期待</div>
+          <div class="d">视频底模持续扩充中。</div></div>
+      </div>
+      <div class="note warn"><b>视频任务的特殊数据要求（来自平台界面）</b>
+        视频数量 1–30 个、时长 5–10 秒、宽高 512–2048；<b>超过 10 秒的视频仅使用前 10 秒训练</b>，建议上传 5–10 秒片段。
+        界面还提示质量维度：主题清晰、角度丰富、无素材剪辑痕迹、无水印。</div>
+
+      <div class="taskband"><span class="chip">音乐模型</span><span class="desc">入口已提供，模型列表以平台实时展示为准</span></div>
+      <div class="note info"><b>模型选择的三条经验</b>
+        ① <b>先定任务再定模型</b>——编辑类任务不要选纯生图模型。
+        ② <b>风格迁移优先 Qwen Image Edit 2511</b>，一致性最好且生态成熟；追求极致质量再上 Qwen-Image-2.1。
+        ③ <b>看许可</b>：标注"商用受限"的模型（如 Fibo 系列）适合研究/尝鲜，商业项目优先 Apache/MIT 系。</div>
+    </div>
+  </section>
+
+  <!-- S2 -->
+  <section id="s2">
+    <div class="sec-head"><div class="num">2</div><h2>数据格式总览（start / end / txt）</h2></div>
+    <div class="card">
+      <p>平台要求压缩包内是若干"组"，每组由 <b>起始图 + 目标图 + 一个同名 txt</b> 构成。命名规则如下：</p>
+      <div class="flow">
+        <div class="node"><div class="t">N_start.jpg</div><div class="d">编辑前 · 原始照片</div></div>
+        <div class="arrow">+</div>
+        <div class="node"><div class="t">N_end.jpg</div><div class="d">编辑后 · 风格化结果</div></div>
+        <div class="arrow">+</div>
+        <div class="node"><div class="t">N.txt</div><div class="d">编辑指令文本</div></div>
+      </div>
+      <p>其中 <code>N</code> 是组的编号（1、2、3…），三个文件必须<b>同号对应</b>。以你的 <code>clay-style_ready</code> 为例：</p>
+<pre><code>clay-style_ready/
+├── 1_start.jpg   1_end.jpg   1.txt
+├── 2_start.jpg   2_end.jpg   2.txt
+│   ...
+└── 17_start.jpg  17_end.jpg  17.txt</code></pre>
+      <div class="note ok"><b>✅ 你已经做好的部分</b>
+        上一轮整理出的三个 <code>_ready</code> 文件夹，每个都是 17 组、编号连续、图片为真 JPEG，格式层面完全符合要求。</div>
+      <div class="note warn"><b>⚠️ 数量与格式红线</b>
+        每个压缩包<b>最多 300 组</b>（你有 17 组，远低于上限）；平台界面同时标注"数量 10–100 张"为推荐训练区间。
+        只认 <b>.jpg 图片 + .txt 文本</b>，<code>.DS_Store</code> 等杂项会被忽略。图片宽高 512–2048，特征明显、角度丰富、不模糊、无水印。</div>
+      <p style="color:var(--sub);font-size:13px">注：Qwen Image Edit 也支持多张参考图（<code>N_start2.jpg</code>、<code>N_start3.jpg</code> 等），你的场景是单张输入，一组 start/end 即可。平台右侧的「上传单图 / 上传图片组」按钮，编辑训练要用<b>「上传图片组」</b>。</p>
+    </div>
+  </section>
+
+  <!-- S3 -->
+  <section id="s3">
+    <div class="sec-head"><div class="num">3</div><h2>关键一步：把标注改成"编辑指令"</h2></div>
+    <div class="card">
+      <div class="note danger"><b>🔥 最容易踩的坑（务必看）</b>
+        你上一轮在 <code>N.txt</code> 里写的是<b>静态风格描述</b>，例如 <i>"A vivid and captivating scene, 3D claymation style, ..."</i>。
+        但<b>图片编辑模型</b>训练时，txt 应描述<b>「把 start 编辑成 end 这个动作」</b>，而非对某张图的静态说明。
+        两者方向不同，直接用静态描述会削弱模型对"编辑操作"的学习。</div>
+      <h3 class="sub">正确的指令长什么样？</h3>
+      <table>
+        <tr><th>风格</th><th>建议的 txt 编辑指令（每组都写同一条即可）</th></tr>
+        <tr><td>粘土定格动画</td><td><code>Transform the input photo into a vivid 3D claymation style, cute clay illustration with detailed clay texture and subtle fingerprints, soft studio lighting, plasticine aesthetic, handcrafted details, vibrant colors, stop-motion film still, octane render. Keep the original hairstyle and composition.</code></td></tr>
+        <tr><td>梵高厚涂油画</td><td><code>Transform the input photo into the style of Vincent van Gogh, impasto oil painting with thick paint texture, visible coarse brushstrokes, swirling patterns, vibrant yellow and deep blue palette, dramatic organic curves, highly expressive, heavily textured canvas. Keep the original hairstyle and composition.</code></td></tr>
+        <tr><td>温馨手绘彩铅</td><td><code>Transform the input photo into a cozy hand-drawn illustration style, watercolor and colored pencil texture, soft pencil sketch outlines, warm and gentle tones, whimsical fairy tale aesthetic, subtle paper grain background, highly detailed, cute and heartwarming. Keep the original hairstyle and composition.</code></td></tr>
+      </table>
+      <p>指令三要点：<b>① 说清要做的改变</b>（转成什么风格）；<b>② 说清要保留什么</b>（发型、构图）；<b>③ 全数据集措辞一致</b>。</p>
+      <div class="note info"><b>要不要改？两种做法</b><br>
+        <b>方案 A（推荐）：</b>上传前用下面脚本把三个 <code>_ready</code> 文件夹的 txt 批量替换为编辑指令。<br>
+        <b>方案 B（省事）：</b>让平台用「智能打标 / JoyCaption」自动重新打标，但描述由模型反推、无法精确控制措辞。</div>
+      <h3 class="sub">批量替换 txt 的脚本（方案 A）</h3>
+<pre><code><span class="c"># 在终端执行，把三个 _ready 文件夹里的 N.txt 改写为对应风格的编辑指令</span>
+python3 - &lt;&lt;'PY'
+import os
+base = <span class="y">"/path/to/train_data"</span>
+prompts = {
+ <span class="y">"clay-style_ready"</span>: <span class="y">"Transform the input photo into a vivid 3D claymation style, cute clay illustration with detailed clay texture and subtle fingerprints, soft studio lighting, plasticine aesthetic, handcrafted details, vibrant colors, stop-motion film still, octane render. Keep the original hairstyle and composition."</span>,
+ <span class="y">"VanGogh-style_ready"</span>: <span class="y">"Transform the input photo into the style of Vincent van Gogh, impasto oil painting with thick paint texture, visible coarse brushstrokes, swirling patterns, vibrant yellow and deep blue palette, dramatic organic curves, highly expressive, heavily textured canvas. Keep the original hairstyle and composition."</span>,
+ <span class="y">"illustration-style_ready"</span>: <span class="y">"Transform the input photo into a cozy hand-drawn illustration style, watercolor and colored pencil texture, soft pencil sketch outlines, warm and gentle tones, whimsical fairy tale aesthetic, subtle paper grain background, highly detailed, cute and heartwarming. Keep the original hairstyle and composition."</span>,
+}
+for folder, text in prompts.items():
+    d = os.path.join(base, folder)
+    for f in os.listdir(d):
+        if f.endswith(<span class="y">".txt"</span>):
+            with open(os.path.join(d, f), <span class="y">"w"</span>, encoding=<span class="y">"utf-8"</span>) as fh:
+                fh.write(text)
+    print(folder, <span class="y">"done"</span>)
+PY</code></pre>
+    </div>
+  </section>
+
+  <!-- S4 -->
+  <section id="s4">
+    <div class="sec-head"><div class="num">4</div><h2>打包成平台可上传的 ZIP</h2></div>
+    <div class="card">
+      <p>每个风格单独打一个 ZIP（三个风格训三个 LoRA）。<b>关键点：ZIP 里直接就是 <code>1_start.jpg / 1_end.jpg / 1.txt</code>，不要再套一层文件夹。</b></p>
+<pre><code><span class="c"># 在 train_data 目录下执行，生成三个干净的 zip</span>
+cd <span class="y">"/path/to/train_data"</span>
+for d in clay-style_ready VanGogh-style_ready illustration-style_ready; do
+  (cd "$d" &amp;&amp; zip -q -r "../${d}.zip" . -x <span class="y">".DS_Store"</span>)
+done
+ls -lh *_ready.zip</code></pre>
+      <div class="note warn"><b>打包检查</b>解压后第一层就要看到 <code>1_start.jpg</code>，而不是 <code>clay-style_ready/1_start.jpg</code>。
+        macOS 访达右键压缩会带上 <code>__MACOSX</code> 目录，建议用上面的命令行方式。</div>
+    </div>
+  </section>
+
+  <!-- S5 -->
+  <section id="s5">
+    <div class="sec-head"><div class="num">5</div><h2>上传数据集到魔搭 AIGC 专区</h2></div>
+    <div class="card">
+      <div class="step"><div class="dot">1</div><div class="body">
+        <h4>进入 AIGC 专区并登录</h4>
+        <p>打开 <a href="https://modelscope.cn/aigc" target="_blank">modelscope.cn/aigc</a>，登录后进入<b>「模型训练」</b>。</p>
+      </div></div>
+      <div class="step"><div class="dot">2</div><div class="body">
+        <h4>切到「数据管理」Tab</h4>
+        <p>地址：<code>modelscope.cn/aigc/model-training?tab=train</code>（页面顶部有 发起训练 / 训练管理 / 数据管理 三个 Tab）。点击<b>「创建数据集」</b>。</p>
+      </div></div>
+      <div class="step"><div class="dot">3</div><div class="body">
+        <h4>填写数据集信息，选择压缩包上传</h4>
+        <p>类型选<b>「图片数据集」</b>，方式选<b>「压缩包上传」</b>，把 <code>clay-style_ready.zip</code> 拖进去确认。三个风格依次建三个数据集。</p>
+      </div></div>
+      <div class="step"><div class="dot">4</div><div class="body">
+        <h4>（可选）检查平台是否配对正确</h4>
+        <p>进入数据集可看到每张图的标注文本；点单张图片可编辑打标，改完记得点<b>「保存」</b>。</p>
+      </div></div>
+      <div class="note info"><b>两种上传方式的区别</b>
+        <b>数据管理页压缩包上传</b>（本教程用这种）：可带 txt 标注，适合已准备好指令的情况。<br>
+        <b>发起训练页直接传图</b>：只能传图片、不能带标注，单次最多 1000 张，平台训练前自动打标——适合还没准备标注的场合。</div>
+    </div>
+  </section>
+
+  <!-- S6 -->
+  <section id="s6">
+    <div class="sec-head"><div class="num">6</div><h2>发起训练：选模型 + 基础参数</h2></div>
+    <div class="card">
+      <div class="step"><div class="dot">1</div><div class="body">
+        <h4>选任务类型与底模</h4>
+        <p>在「模型选择」区点<b>「图像编辑模型」</b>，选 <b>Qwen Image Edit 2511</b>（或 Qwen-Image-2.1）。</p>
+      </div></div>
+      <div class="step"><div class="dot">2</div><div class="body">
+        <h4>选择数据集</h4>
+        <p>右侧图片区域点<b>「选择已有数据集」</b>，勾选刚上传的数据集。编辑训练请确认走的是<b>「上传图片组」</b>路径。</p>
+      </div></div>
+      <div class="step"><div class="dot">3</div><div class="body">
+        <h4>填写基础训练参数</h4>
+        <table>
+          <tr><th>参数</th><th>建议值 / 说明</th></tr>
+          <tr><td>单张次数</td><td>每张图被使用的次数，影响学习深度；先用默认值，数据少可适当增大</td></tr>
+          <tr><td>训练轮数 / 总步数</td><td>6000 步左右较稳妥；页面有"轻量 / 推荐 / 充分"档位，过多易过拟合</td></tr>
+          <tr><td>LoRA 模型名称</td><td>填英文名，如 <code>clay_bangs_v1</code></td></tr>
+          <tr><td>LoRA 中文名称</td><td>选填，如"粘土定格动画风"</td></tr>
+          <tr><td>模型触发词</td><td>非必填；建议用生造词或拼音（如 <code>claystyle</code>），避免常见英文单词</td></tr>
+        </table>
+      </div></div>
+      <div class="step"><div class="dot">4</div><div class="body">
+        <h4>选择训练方式并点「开始训练」</h4>
+        <p>页面底部有两个按钮：<b>「开始免费训练」</b>（消耗魔粒值，有免费额度）与<b>「开始专业训练」</b>（使用云上付费训练资源）。新手先用免费训练。</p>
+      </div></div>
+      <div class="note warn"><b>切换训练模式会清空已上传数据</b>
+        平台明确提示："如您选择「专业训练」，请在切换至对应服务页面后重新上传训练数据，此前上传内容不会保留。"
+        所以<b>先想好用哪种模式</b>，选定后一次性上传完数据再提交。</div>
+    </div>
+  </section>
+
+  <!-- S7 -->
+  <section id="s7">
+    <div class="sec-head"><div class="num">7</div><h2>专业参数深度解读</h2></div>
+    <div class="card">
+      <p>点「专业参数」会弹出配置面板，左侧共 7 个选项卡：<b>样图设置、保存设置、学习率&amp;优化器、数据集设置、网络设置、高级设置</b>（面板可滚动）。下面按平台界面中的默认值逐项讲清楚"是什么 / 怎么调"。</p>
+
+      <h3 class="sub">7.1 面板默认值速查</h3>
+      <table>
+        <tr><th>选项卡</th><th>参数</th><th>默认值</th><th>作用</th></tr>
+        <tr><td>保存设置</td><td>LoRA 保存精度 Save precision</td><td><code>bf16</code></td><td>权重文件的数值精度</td></tr>
+        <tr><td>学习率&amp;优化器</td><td>总学习率 Learning rate</td><td><code>0.0001</code></td><td>每步参数更新幅度</td></tr>
+        <tr><td>学习率&amp;优化器</td><td>优化器 Optimizer</td><td><code>AdamW</code></td><td>参数更新的算法</td></tr>
+        <tr><td>数据集设置</td><td>图片分辨率 Resolution</td><td><code>1024 × 1024</code></td><td>训练时图片缩放尺寸</td></tr>
+        <tr><td>网络设置</td><td>网络大小 Network rank dim</td><td><code>16</code></td><td>LoRA 的"记忆容量"</td></tr>
+      </table>
+      <div class="note info"><b>提示</b>界面上分辨率旁有一行小字："增大分辨率会影响训练速度，请酌情设置总步数"。
+        意思是分辨率与训练步数是联动的——图越大越慢，别只调分辨率不加步数。</div>
+
+      <h3 class="sub">7.2 优化器 Optimizer：怎么选？</h3>
+      <p>优化器决定"如何根据损失更新权重"，直接影响收敛速度、显存占用和最终质量。常见选项对比：</p>
+      <table>
+        <tr><th>优化器</th><th>特点</th><th>显存</th><th>建议学习率</th><th>适用场景</th></tr>
+        <tr><td><b>AdamW</b>（默认）</td><td>经典稳定、通用性好、质量上限高</td><td>高</td><td>1e-4</td><td>默认首选，数据质量高、显存充足时</td></tr>
+        <tr><td><b>AdamW8bit</b></td><td>8 位量化，显存降约一半、速度更快，质量损失极小</td><td>中</td><td>1e-4</td><td>显存吃紧时的首选替代</td></tr>
+        <tr><td>Adafactor</td><td>内存效率高，会自动调整学习率（手动设的学习率常被忽略）</td><td>低</td><td>交由自动</td><td>大模型 / 显存很紧</td></tr>
+        <tr><td>Lion</td><td>新型优化器，速度快、显存低，但稳定性略逊、结果可能波动</td><td>很低</td><td>1e-4 量级</td><td>探索性训练、低显存环境</td></tr>
+        <tr><td>DAdapt / Prodigy</td><td>自动学习率，通常填 1.0 左右；注意不能与 LoRA+ 同用</td><td>中</td><td>≈1.0</td><td>不想手调学习率时</td></tr>
+        <tr><td>SGD Nesterov</td><td>传统动量法，精度可但收敛慢</td><td>低</td><td>需单独试</td><td>特殊需求</td></tr>
+      </table>
+      <div class="note ok"><b>给你的一句话建议</b>先用默认 <b>AdamW + 1e-4</b> 跑通；报显存不足就换 <b>AdamW8bit</b>；
+        想少调参可试 DAdapt（学习率填 1.0）。别一上来就用 Lion 等实验性选项。</div>
+
+      <h3 class="sub">7.3 学习率 Learning rate：最重要的单个超参</h3>
+      <p>它决定每次更新"迈多大步"。太大→训练震荡、loss 爆炸甚至模型崩塌；太小→学不动、欠拟合。</p>
+      <table>
+        <tr><th>场景</th><th>建议学习率</th><th>说明</th></tr>
+        <tr><td>默认值 / 大多数情况</td><td><code>1e-4（0.0001）</code></td><td>稳妥起点</td></tr>
+        <tr><td>风格 LoRA（你的场景）</td><td><code>5e-5 ~ 1e-4</code></td><td>风格特征相对统一，可偏低一点更稳</td></tr>
+        <tr><td>角色 / 精细特征 LoRA</td><td><code>1e-4 ~ 2e-4</code></td><td>需要更强学习来记住细节</td></tr>
+        <tr><td>数据量很少（&lt;20 张）</td><td>偏低 + 少步数</td><td>配合低 rank，防止过拟合</td></tr>
+      </table>
+      <p><b>学习率调度器（LR Scheduler）</b>决定学习率随时间怎么变，通常在"高级设置"里：</p>
+      <table>
+        <tr><th>调度器</th><th>行为</th><th>何时用</th></tr>
+        <tr><td>constant</td><td>全程不变</td><td>前期快速收敛</td></tr>
+        <tr><td>cosine</td><td>按余弦曲线衰减</td><td>后期精细收敛、收尾</td></tr>
+        <tr><td>constant_with_warmup</td><td>先线性热身再恒定</td><td>训练初期不稳定时</td></tr>
+        <tr><td>cosine_with_restarts</td><td>余弦衰减伴随重启</td><td>跳出局部最优，进阶</td></tr>
+      </table>
+      <p>常用策略：<b>前 5 轮 constant、后 5–10 轮 cosine</b>；<b>Warmup（热身）</b>一般取总步数的 5%–10%，让模型先"热身"再全速学习。
+         若面板提供"文本编码器学习率"，通常设得比主学习率更低（如 <code>1e-5 ~ 5e-5</code>），避免破坏文本理解能力。</p>
+
+      <h3 class="sub">7.4 网络大小 Network rank dim：LoRA 的"记忆容量"</h3>
+      <p>Rank 决定 LoRA 能存多少信息。越大可塑性越强、能记更复杂特征，但文件更大、更易过拟合，也需要更多数据支撑。</p>
+      <table>
+        <tr><th>Rank</th><th>适合场景</th><th>大致文件体积</th></tr>
+        <tr><td>8–16</td><td>简单风格、轻量特征（默认 16 够用）</td><td>约 5–40 MB</td></tr>
+        <tr><td>16–32</td><td>通用推荐，质量与体积平衡</td><td>约 15–40 MB</td></tr>
+        <tr><td>32–64</td><td>复杂角色、精细细节</td><td>约 40–80 MB</td></tr>
+        <tr><td>64+</td><td>特殊需求，需大量数据支撑</td><td>80 MB 以上</td></tr>
+      </table>
+      <p><b>经验法则：数据越少，rank 越低。</b>你每组风格只有 17 张，建议 <b>rank 从默认 16 起步，最多到 32</b>；直接上 64 容易过拟合（只会照搬训练图）。</p>
+      <div class="note info"><b>Network Alpha（若面板提供）</b>
+        Alpha 是缩放因子，实际生效强度约为 <code>alpha / rank</code>。常见设成 <b>alpha = rank</b>（强度 1，不额外缩放）
+        或 <b>alpha = rank/2</b>（强度 0.5，更温和）。改了 alpha 等于变相改了学习率强度，调它时要留意。</div>
+
+      <h3 class="sub">7.5 分辨率 Resolution 与保存精度</h3>
+      <ul class="chk">
+        <li><b>分辨率</b>：默认 1024×1024，平台要求宽高在 512–2048。风格统一、主体清晰即可，不必盲目调高；调高会显著变慢并需要更多步数。</li>
+        <li><b>保存精度 bf16</b>：动态范围大、不易数值溢出，是当前默认且推荐值。fp16 精度更高但范围小、极端情况易溢出；fp32 最稳但文件大。</li>
+        <li><b>样图设置</b>：配置训练过程中生成预览图的提示词、采样步数、种子等，用来直观判断各 Checkpoint 的效果，建议填一条与你指令一致的样图提示。</li>
+        <li><b>保存设置</b>：除精度外，通常还有"每 N 轮保存一个 LoRA"——保存点越密越方便挑最佳版本，代价是占更多存储。</li>
+        <li><b>高级设置</b>：可能包含梯度累积、噪声偏移（noise offset）、混合精度、随机种子等进阶项；新手保持默认即可。</li>
+      </ul>
+
+      <h3 class="sub">7.6 一套可直接照抄的配置（你的风格任务）</h3>
+<pre><code>任务类型      : 图像编辑模型
+底模          : Qwen Image Edit 2511
+数据集        : clay-style_ready.zip（17 组）
+单张次数      : 默认值
+训练总步数    : 6000（轻量档起步，效果不足再增加）
+触发词        : claystyle / vangoghstyle / sketchstyle（各自不同）
+学习率        : 0.0001（可试 5e-5 更稳）
+优化器        : AdamW（显存不足改 AdamW8bit）
+分辨率        : 1024 × 1024
+Network rank  : 16（最多 32）
+保存精度      : bf16
+调度器        : 前段 constant + 后段 cosine（如面板提供）
+训练方式      : 开始免费训练</code></pre>
+    </div>
+  </section>
+
+  <!-- S8 -->
+  <section id="s8">
+    <div class="sec-head"><div class="num">8</div><h2>查看进度与下载 LoRA</h2></div>
+    <div class="card">
+      <p>提交后到<b>「训练管理」</b>页，会新增一张任务卡片，点卡片查看详情。状态流转：</p>
+      <div class="flow">
+        <div class="node"><div class="t">排队中</div><div class="d">等待云端资源</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">训练中</div><div class="d">正在微调</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">训练完成</div><div class="d">可下载权重</div></div>
+      </div>
+      <p>还有「训练失败」「超时终止」两种异常状态；<b>超时终止</b>时可点卡片右上角<b>「重启」</b>继续。</p>
+      <ul class="chk">
+        <li>详情页左下角是 <b>LoRA 保存点（Checkpoint）</b>，按"每 N 轮保存一个"输出，每个保存点生成一张<b>实时样图</b>，方便挑最佳版本。</li>
+        <li>每个保存点的模型都可<b>下载</b>（<code>.safetensors</code> 权重）。</li>
+        <li>页面右侧展示本次训练的完整参数详情，便于复现实验。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- S9 -->
+  <section id="s9">
+    <div class="sec-head"><div class="num">9</div><h2>用训练好的 LoRA 做编辑</h2></div>
+    <div class="card">
+      <p>训练完成后，回到 AIGC 专区的创作 / 体验入口，加载训练出的 LoRA：</p>
+      <div class="grid2">
+        <div class="note ok" style="margin:0"><b>输入</b>一张新的原始照片（与训练数据同类型的 start 图）。</div>
+        <div class="note info" style="margin:0"><b>指令</b>贴上训练时用的同一条编辑指令，必要时带上触发词。</div>
+      </div>
+      <p style="margin-top:14px">效果不理想时，优先检查"输入图是否与训练数据同类型"，其次是换用不同 Checkpoint、微调指令措辞或步数。</p>
+    </div>
+  </section>
+
+  <!-- S10 -->
+  <section id="s10">
+    <div class="sec-head"><div class="num">10</div><h2>常见问题与踩坑清单</h2></div>
+    <div class="card">
+      <table>
+        <tr><th>现象</th><th>原因 / 处理</th></tr>
+        <tr><td>训练出来"没学会风格"</td><td>① txt 用了静态描述而非编辑指令 → 回到第 3 步改写；② 步数太少 → 提到 6000 左右；③ 样本质量参差 → 保证风格一致、无水印</td></tr>
+        <tr><td>只会照搬训练图（过拟合）</td><td>降低 rank（回到 16）、减少步数/单张次数、增加样本多样性</td></tr>
+        <tr><td>训练震荡 / loss 爆炸</td><td>学习率过大 → 降到 5e-5；开启 warmup；检查数据标注是否混乱</td></tr>
+        <tr><td>报显存不足</td><td>优化器从 AdamW 换 AdamW8bit；降低分辨率；减小 batch（若可调）</td></tr>
+        <tr><td>图片被忽略 / 组数不对</td><td>压缩包层级不对或含违规格式；解压第一层必须是 <code>N_start.jpg / N_end.jpg / N.txt</code></td></tr>
+        <tr><td>选错模型（选成图像模型）</td><td>回到"图像编辑模型"标签重选底模，数据按图片组重新上传</td></tr>
+        <tr><td>切换专业训练后数据不见了</td><td>平台切换训练模式会清空已上传数据，需在新页面重新上传</td></tr>
+        <tr><td>任务超时终止</td><td>点任务卡片右上角「重启」继续，不必从头提交</td></tr>
+      </table>
+      <h3 class="sub">训练前 60 秒自检</h3>
+      <ul class="chk">
+        <li>任务类型选的是<b>图像编辑模型</b>，底模为 Qwen Image Edit 2511 / Qwen-Image-2.1</li>
+        <li>每个 ZIP ≤ 300 组，解压后文件在根目录层级，无杂项</li>
+        <li>每组 <code>N_start.jpg</code> + <code>N_end.jpg</code> + <code>N.txt</code> 编号一致</li>
+        <li>txt 是"编辑指令"而非静态描述，且全数据集措辞统一</li>
+        <li>学习率 1e-4、优化器 AdamW、rank 16、分辨率 1024、精度 bf16（默认值起步）</li>
+        <li>已想好用免费训练还是专业训练（切换会清空数据）</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="foot">
+    教程依据魔搭社区官方界面与文档、公开模型资料整理 · 更新于 2026-11-17<br>
+    <div class="src-list" style="margin-top:10px">
+      主要参考来源：
+      <ul>
+        <li>魔搭 AIGC 专区 · 模型训练：<a href="https://modelscope.cn/aigc" target="_blank">modelscope.cn/aigc</a></li>
+        <li>AIGC 专区模型训练官方说明（无影灵构帮助中心）：<a href="https://docs-lincore.wuying.com/zh/docs/guide/images/image-modelscope-modeltraining" target="_blank">查看</a></li>
+        <li>魔搭官方 · 编辑模型数据集打标规范：<a href="https://www.modelscope.cn/skills/atent2L/editing-model-dataset-tagger" target="_blank">查看</a></li>
+        <li>Qwen-Image-Edit / FLUX.2-klein / HiDream-O1 等模型卡与社区评测；LoRA 训练参数实践资料（优化器、学习率、rank 等）</li>
+      </ul>
+      <p style="margin-top:8px">注：模型列表、参数默认值与许可条款以平台及模型官方实时信息为准。</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
